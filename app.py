@@ -1352,7 +1352,13 @@ def page_open():
 
     # 배경은 반드시 위젯보다 "먼저" 그려야 합니다.
     # position:fixed 라 나중에 그리면 앞선 위젯들을 덮어 가려 버립니다.
-    st.session_state.pop("_me", None)      # 교사 화면에서는 특정 나무를 키우지 않습니다
+    # 교사가 편지를 열고 있으면 그 학생 번호(_open_me, 편지 넘길 때 저장됨)의
+    # 나무를 띄웁니다. 편지 열기 전에는 나무가 없습니다.
+    _open_me = st.session_state.get("_open_me")
+    if _open_me:
+        st.session_state["_me"] = str(_open_me)
+    else:
+        st.session_state.pop("_me", None)
     render_backdrop(key, stage=3, guide=st.session_state.get("guide_on", False))
 
     top1, top2 = st.columns([1, 1])
@@ -1360,6 +1366,7 @@ def page_open():
         if st.button("← 다른 반", key="back_class", use_container_width=True):
             st.session_state.pop("open_key", None)
             st.session_state.pop("order", None)
+            st.session_state.pop("_open_me", None)
             st.session_state.idx = -1
             st.rerun()
     with top2:
@@ -1391,6 +1398,7 @@ def page_open():
     play_music()
 
     if idx < 0:
+        st.session_state.pop("_open_me", None)   # 편지 열기 전에는 나무 없음
         st.markdown('<div class="sky-title">타임캡슐이 열립니다</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="sky-sub">{c["name"]} · {len(letters)}그루 · {len(letters)}통의 편지</div>',
@@ -1470,6 +1478,8 @@ def page_open():
         return
 
     rec = letters[order[idx]]
+    # 지금 열려 있는 편지의 학생 번호를 저장 → 배경이 그 학생 나무를 띄웁니다.
+    st.session_state["_open_me"] = str(rec["number"])
     written = datetime.fromisoformat(rec["written_at"]).date()
     st.markdown(f'<div class="sky-sub">{idx+1} / {len(order)}</div>', unsafe_allow_html=True)
     st.markdown(
@@ -1499,10 +1509,11 @@ def main():
 
     at_start = not key and not teacher
 
-    # 학생 화면이면 그 반의 성장 단계에 맞는 학교 나무 배경을 씁니다.
-    # 시작 화면·교사 화면은 기본 배경.
-    if key and not teacher:
-        bg_now = BG_STAGES[stage_index(key)]
+    # 반이 정해지면(학생=key, 교사=open_key) 그 반의 성장 단계 배경을 씁니다.
+    # 시작 화면만 기본 배경.
+    bg_key = key or (st.session_state.get("open_key") if teacher else None)
+    if bg_key:
+        bg_now = BG_STAGES[stage_index(bg_key)]
     else:
         bg_now = BG_FILE
     inject_css(bg_now, intro=at_start)
