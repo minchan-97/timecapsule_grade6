@@ -734,42 +734,38 @@ def inject_css(stage_file, intro=False):
     color: #3f3a33 !important; font-weight: 700 !important;
     text-shadow: 0 0 6px rgba(255,255,255,1);
   }}
-  /* 농장 배경 — 화면 전체 */
+  /* 농장 배경 — 화면 전체. 세로 그림 양옆은 베이지 파스텔로 채웁니다. */
   .backdrop {{
     position: fixed; top: 0; left: 0;
     width: 100vw; height: 100vh;
     z-index: 0; pointer-events: none; overflow: hidden;
+    background: #f3ece2;   /* 세로 그림 좌우 여백 채움 */
   }}
   /* 그림판 — 화면을 덮되 그림 비율을 유지합니다.
      나무와 꽃의 %좌표가 이 판을 기준으로 하므로, 화면 비율이 바뀌어도
      언덕 위에 놓인 것이 하늘로 떠오르지 않습니다. */
   .canvas {{
     position: absolute; top: 50%; left: 50%;
-    /* --shift 만큼 옆으로 밀어 내 나무를 화면 가운데로 가져옵니다.
-       화면 밖으로 여백이 생기지 않도록 clamp 로 이동 범위를 묶습니다. */
-    --canvasw: max(100vw, calc(100vh * 1200 / 1800));
-    --half: calc((var(--canvasw) - 100vw) / 2);
-    --shift: 0px;
-    transform: translate(
-      calc(-50% + clamp(calc(-1 * var(--half)), var(--shift), var(--half))), -50%);
+    /* 세로 그림(1200:1800)을 '높이에 맞춰' 온전히 보여 줍니다.
+       화면 높이를 꽉 채우고, 폭은 비율대로 따라옵니다.
+       가로 화면에서는 그림이 화면보다 좁으므로 좌우에 베이지 여백이 남습니다. */
+    transform: translate(-50%, -50%);
     transition: transform 0.5s ease;
-    /* 화면을 덮으면서 그림 비율(1400:788)을 정확히 유지합니다.
-       aspect-ratio 나 미디어쿼리에 기대지 않아 브라우저를 가리지 않습니다. */
-    width:  max(100vw, calc(100vh * 1200 / 1800));
-    height: max(100vh, calc(100vw * 1800 / 1200));
+    height: 100vh;
+    width:  calc(100vh * 1200 / 1800);
+    --cw: calc(100vh * 1200 / 1800 / 100);   /* 그림판 가로의 1% */
     background-image: url("{bg}");
     background-size: 100% 100%;
     background-repeat: no-repeat;
-    --cw: max(0.8333vw, 0.5556vh);   /* 그림판 가로의 1% */
   }}
-  /* 모바일 주소창 때문에 100vh 가 실제 화면보다 큰 문제를 보정합니다 */
+  /* 모바일 주소창 때문에 100vh 가 실제 화면보다 큰 문제를 보정합니다.
+     세로 그림을 높이에 맞추는 방식은 그대로 두고 단위만 dvh 로 바꿉니다. */
   @supports (height: 100dvh) {{
     .backdrop {{height: 100dvh;}}
     .canvas {{
-      width:  max(100vw, calc(100dvh * 1200 / 1800));
-      height: max(100dvh, calc(100vw * 1800 / 1200));
-      --cw: max(0.8333vw, 0.5556dvh);
-      --canvasw: max(100vw, calc(100dvh * 1200 / 1800));
+      height: 100dvh;
+      width:  calc(100dvh * 1200 / 1800);
+      --cw: calc(100dvh * 1200 / 1800 / 100);
     }}
   }}
   /* Streamlit 의 전역 img 규칙이 크기를 바꾸지 못하게 막습니다 */
@@ -1066,12 +1062,9 @@ def render_backdrop(key, extra=None, stage=None, guide=False):
     cls = "canvas guide" if guide else "canvas"
     html = "".join(h for _, h in sorted(layers, key=lambda p: p[0]))
 
-    # 내 나무가 화면 가운데 오도록 그림판을 옆으로 밉니다.
-    # 모바일 세로에서는 그림판이 화면보다 훨씬 넓어 끝쪽 나무가 안 보입니다.
+    # 세로(폰) 고정 레이아웃에서는 그림판이 항상 화면 높이에 맞춰 가운데 옵니다.
+    # 좌우로 밀 필요가 없으므로 shift 를 쓰지 않습니다.
     shift = ""
-    if my:
-        dx = 50.0 - my[0]["x"]
-        shift = f' style="--shift:calc({dx:.2f} * var(--canvasw) / 100);"'
 
     st.markdown(
         f'<div class="backdrop"><div class="{cls}"{shift}>{html}</div></div>',
